@@ -1,0 +1,138 @@
+#pragma warning(disable:4996)
+#include "stdafx.h"
+#include <iostream>
+#include <fstream>
+#include <ctime>
+#include <string>
+#include <cstring> 
+#include <clocale> // необходим для вызова функции, позволяющей использовать кириллицу 
+
+using namespace std;
+
+struct InfAboutClients { // структура, в которой будут указаны все данные о клиентах
+	char ClientName[60];
+	char phoneNumber[20];
+	int Day;
+	int Month;
+	int Year;
+	char endDate[20];
+	char dolg[20];
+	char kredit[20];
+};
+struct InfAboutTariff { //структура, в которой будут указаны все данные о тарифах
+	char ServiceName[60];
+	char code[5];
+	float cost;
+	char IzmInterv[20];
+};
+struct InfAboutCall { //структура, в которой будут указаны даты и длительность всех оказываемых услуг по опр. номеру
+	char phoneNumber[20];
+	char code[5];
+	char date[20];
+	char time[20];
+	int TimeInSec;
+};
+char service1[60];
+char service2[60];
+char n[2]; //буффер для считывания
+
+int main() {
+	setlocale(LC_ALL, "Rus");
+
+	ofstream Reset("Report.txt", ios::trunc); // обнуляем файл отчёта, чтобы убрать из него данные с предыдущего запуска
+	Reset.close();
+
+	ifstream services("Param.ini"); // открываем файл с параметрами и считываем данные
+	services.getline(service1, 60, '\n');
+	services.getline(service2, 60, '\n');
+	services.close();
+
+	// создаём переменные для обозначенных ранее структур
+	InfAboutClients client[60];
+	InfAboutTariff tariff[20];
+	InfAboutCall call[60];
+
+	int count1 = 0; // создаём переменную, в которую будет записано кол-во клиентов
+
+	ifstream FileA("Clients.txt"); // открываем файл с информацией о клиентах и считываем данные
+	for (int i = 0; !FileA.eof(); i++)
+	{
+		count1++;
+		FileA.getline(client[i].ClientName, 70, ',');
+		FileA.getline(client[i].phoneNumber, 70, ',');
+		FileA >> client[i].Day >> client[i].Month >> client[i].Year;
+		FileA.getline(client[i].endDate, 70, ',');
+		FileA.getline(client[i].dolg, 70, ',');
+		FileA.getline(client[i].kredit, 70, '\n');
+	}
+
+	FileA.close(); // закрываем первый файл
+
+	int count3 = 0; // создаём переменную, в которую будет записано кол-во типов тарифов
+
+	ifstream FileB("Services.txt"); // открываем файл с информацией о предоставляемых услугах и считываем данные
+	for (int i = 0; !FileB.eof(); i++)
+	{
+		count3++;
+		FileB.getline(tariff[i].ServiceName, 70, ',');
+		FileB.getline(tariff[i].code, 70, ',');
+		FileB >> tariff[i].cost;
+		FileB.getline(tariff[i].IzmInterv, 70, '\n');
+	}
+
+	FileB.close(); // закрываем второй файл
+
+	int count2 = 0; // создаём переменную, в которую будет записано кол-во звонков
+
+	ifstream FileC("CallList.txt"); // открываем файл с информацией о совершённых звонках клиентов и считываем данные
+	for (int o = 0; o < 60 && !FileC.eof(); o++)
+	{
+		count2++;
+		FileC.getline(call[o].phoneNumber, 70, ',');
+		FileC.getline(call[o].code, 70, ',');
+		FileC.getline(call[o].date, 70, ',');
+		FileC.getline(call[o].time, 70, ',');
+		FileC >> call[o].TimeInSec;
+		FileC.getline(n, 2, '\n');
+	}
+
+	FileC.close(); // закрываем третий файл
+
+	time_t t = time(NULL);
+	tm* timeinfo = localtime(&t);
+	int localmonth = (localtime(&t)->tm_mon) +1; // текущий месяц
+	int localyear = (localtime(&t)->tm_year) +1900; // текущий год
+	cout << "Текущие месяц и год " << localmonth << " " << localyear << endl;
+
+	for (int i = 0; i < count3; i++) { // данный цикл заменяет названия услуг на их кодовое обозначение
+		if (strcmp(service1, tariff[i].ServiceName) == 0) // что сильно облегчает работу с условием задания
+			strcpy(service1, tariff[i].code);
+		if (strcmp(service2, tariff[i].ServiceName) == 0)
+			strcpy(service2, tariff[i].code);
+	}
+
+	int sum = 0; // переменная, которая будет являться суммой телефонных разговоров по заданным тарифам
+
+	if (count2 == 1) {
+		ofstream File("Report.txt");
+		File << "Нет данных" << endl; // в случае, если данных о звонках нет, в файл выводится "Нет данных"
+		File.close();
+		cout << "Данные в результирующем файле отсутствуют" << endl;
+	}
+	else {
+		for (int i = 0; i < count1; i++) {
+			if ((client[i].Month == localmonth) && (client[i].Year == localyear)) { // проверка на дату заключения договора
+				for (int j = 0; j < count2; j++)
+					if ((strcmp(client[i].phoneNumber, call[j].phoneNumber) == 0) && // проверка на соответствие номеров и соответствие типам услуг
+						((atoi(call[j].code) == atoi(service1)) || (atoi(call[j].code) == atoi(service2)))) 
+						sum = (sum + (call[j].TimeInSec));
+				ofstream FileO("Report.txt", ios::app);
+				FileO << client[i].ClientName << ", " << sum << "\n";
+				FileO.close();
+				sum = 0;
+			}
+		}
+		cout << "Данные в результирующем файле присутствуют" << endl;
+	}
+	system("PAUSE");
+}
